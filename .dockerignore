@@ -1,11 +1,9 @@
-Dockerfile
-.dockerignore
 node_modules
-npm-debug.log
-.next
+**/.next
+**/dist
 .git
-.gitignore
 .cursor
 *.md
 .env
 .env*.local
+npm-debug.log*

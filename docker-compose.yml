@@ -1,9 +1,15 @@
-# Production-style run. For local hot reload, use `npm run dev` on the host.
+# Production-style frontend. For local dev: `npm run dev` from repo root (workspace).
 # Optional: env_file: .env for future API keys (CocktailDB, LLM, etc.)
+#
+# Future services (uncomment when implemented):
+#   backend — LangChain / HTTP API
+#   mcp — stdio or sidecar MCP process
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     ports:
       - "3000:3000"
     # env_file:
