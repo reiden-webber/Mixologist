@@ -38,7 +38,7 @@ export function Composer({ disabled, onSend }: Props) {
   return (
     <form
       onSubmit={onSubmit}
-      className="border-t border-zinc-200 bg-[var(--background)] px-3 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] dark:border-zinc-800 dark:shadow-[0_-4px_12px_rgba(0,0,0,0.25)] md:px-6"
+      className="shrink-0 border-t border-zinc-200 bg-[var(--background)] px-3 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] dark:border-zinc-800 dark:shadow-[0_-4px_12px_rgba(0,0,0,0.25)] md:px-6"
     >
       <div className="mx-auto flex max-w-3xl gap-2 rounded-2xl border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-950">
         <textarea

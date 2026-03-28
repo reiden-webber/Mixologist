@@ -53,14 +53,14 @@ export function ChatShell() {
   }, []);
 
   return (
-    <div className="flex min-h-screen font-[family-name:var(--font-geist-sans)]">
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-950/80 md:flex">
-        <div className="border-b border-zinc-200 p-4 dark:border-zinc-800">
+    <div className="flex h-[100dvh] max-h-[100dvh] w-full overflow-hidden font-[family-name:var(--font-geist-sans)]">
+      <aside className="hidden h-full max-h-[100dvh] w-56 shrink-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-50/80 dark:border-zinc-800 dark:bg-zinc-950/80 md:flex">
+        <div className="shrink-0 border-b border-zinc-200 p-4 dark:border-zinc-800">
           <span className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
             Bartender
           </span>
         </div>
-        <nav className="p-3">
+        <nav className="min-h-0 flex-1 overflow-y-auto p-3">
           <button
             type="button"
             className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
@@ -73,12 +73,12 @@ export function ChatShell() {
         </nav>
       </aside>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-[var(--background)]">
-        <header className="flex items-center border-b border-zinc-200 px-4 py-3 md:hidden dark:border-zinc-800">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--background)]">
+        <header className="shrink-0 flex items-center border-b border-zinc-200 px-4 py-3 md:hidden dark:border-zinc-800">
           <span className="text-lg font-bold tracking-tight">Bartender</span>
         </header>
 
-        <main className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <MessageList messages={messages} pending={pending} />
           <Composer disabled={pending} onSend={handleSend} />
         </main>
