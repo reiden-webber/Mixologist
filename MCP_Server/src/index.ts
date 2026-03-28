@@ -1,6 +1,13 @@
 import { FastMCP } from "fastmcp";
 import { z } from "zod";
-import { fetchCocktailDbJson, normalizeDrinksResponse } from "./cocktailDb.js";
+import {
+  executeGetCocktailDetails,
+  executeGetCocktailsByIngredient,
+  executeSearchCocktailByName,
+  loadCategoriesResourceText,
+  loadGlasswareResourceText,
+  loadIngredientsResourceText,
+} from "./cocktailHandlers.js";
 
 const server = new FastMCP({
   name: "cocktaildb",
@@ -14,10 +21,9 @@ server.addResource({
     "Canonical ingredient strings from TheCocktailDB (e.g. spelling/casing). Read before searching or filtering so tool arguments match the API.",
   mimeType: "application/json",
   async load() {
-    const raw = await fetchCocktailDbJson("list.php?i=list");
     return {
       mimeType: "application/json",
-      text: JSON.stringify(normalizeDrinksResponse(raw)),
+      text: await loadIngredientsResourceText(),
     };
   },
 });
@@ -28,10 +34,9 @@ server.addResource({
   description: "Category labels used by TheCocktailDB for grouping drinks.",
   mimeType: "application/json",
   async load() {
-    const raw = await fetchCocktailDbJson("list.php?c=list");
     return {
       mimeType: "application/json",
-      text: JSON.stringify(normalizeDrinksResponse(raw)),
+      text: await loadCategoriesResourceText(),
     };
   },
 });
@@ -42,10 +47,9 @@ server.addResource({
   description: "Glass types as named in TheCocktailDB for presentation and filtering context.",
   mimeType: "application/json",
   async load() {
-    const raw = await fetchCocktailDbJson("list.php?g=list");
     return {
       mimeType: "application/json",
-      text: JSON.stringify(normalizeDrinksResponse(raw)),
+      text: await loadGlasswareResourceText(),
     };
   },
 });
@@ -60,10 +64,7 @@ server.addTool({
     ingredient: z.string().min(1).describe("Ingredient name as in TheCocktailDB"),
   }),
   annotations: toolAnnotations,
-  execute: async ({ ingredient }) => {
-    const raw = await fetchCocktailDbJson(`filter.php?i=${encodeURIComponent(ingredient)}`);
-    return JSON.stringify(normalizeDrinksResponse(raw));
-  },
+  execute: async ({ ingredient }) => executeGetCocktailsByIngredient(ingredient),
 });
 
 server.addTool({
@@ -74,10 +75,7 @@ server.addTool({
     id: z.string().min(1).describe("TheCocktailDB idDrink"),
   }),
   annotations: toolAnnotations,
-  execute: async ({ id }) => {
-    const raw = await fetchCocktailDbJson(`lookup.php?i=${encodeURIComponent(id)}`);
-    return JSON.stringify(normalizeDrinksResponse(raw));
-  },
+  execute: async ({ id }) => executeGetCocktailDetails(id),
 });
 
 server.addTool({
@@ -88,10 +86,7 @@ server.addTool({
     name: z.string().min(1).describe("Cocktail name or substring"),
   }),
   annotations: toolAnnotations,
-  execute: async ({ name }) => {
-    const raw = await fetchCocktailDbJson(`search.php?s=${encodeURIComponent(name)}`);
-    return JSON.stringify(normalizeDrinksResponse(raw));
-  },
+  execute: async ({ name }) => executeSearchCocktailByName(name),
 });
 
 await server.start({
