@@ -31,8 +31,22 @@ export function ChatShell() {
     });
     setPending(true);
     try {
-      const reply = await submitUserMessage(threadForRequest, text);
+      const reply = await submitUserMessage(threadForRequest);
       setMessages((prev) => [...prev, reply]);
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : "Something went wrong.";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id:
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `error-${Date.now()}`,
+          role: "assistant",
+          content: `Sorry — ${detail}`,
+          createdAt: Date.now(),
+        },
+      ]);
     } finally {
       setPending(false);
     }
@@ -65,7 +79,7 @@ export function ChatShell() {
         </header>
 
         <main className="flex flex-1 flex-col overflow-hidden">
-          <MessageList messages={messages} />
+          <MessageList messages={messages} pending={pending} />
           <Composer disabled={pending} onSend={handleSend} />
         </main>
       </div>

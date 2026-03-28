@@ -1,26 +1,55 @@
 import type { Message } from "./types";
 
-/**
- * Client-side entry point for sending a user turn. Replace the body with
- * `fetch("/api/chat", …)` or a Server Action when LangChain / MCP is wired up.
- */
-export async function submitUserMessage(
-  messages: Message[],
-  text: string,
-): Promise<Message> {
-  void messages;
-  void text;
+type ChatApiMessage = { role: "user" | "assistant"; content: string };
 
-  await new Promise((r) => setTimeout(r, 400));
+type ChatApiOk = { reply: string };
+type ChatApiErr = { error?: string; message?: string };
+
+function newId(prefix: string): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${prefix}-${Date.now()}`;
+}
+
+/**
+ * Sends the full thread to the Next.js API route, which proxies to the backend / mixologist.
+ */
+export async function submitUserMessage(messages: Message[]): Promise<Message> {
+  const payload: { messages: ChatApiMessage[] } = {
+    messages: messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    })),
+  };
+
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const raw = await res.text();
+  let data: ChatApiOk & ChatApiErr;
+  try {
+    data = JSON.parse(raw) as ChatApiOk & ChatApiErr;
+  } catch {
+    throw new Error("The server returned an invalid response.");
+  }
+
+  if (!res.ok) {
+    const detail = data.message ?? data.error ?? `HTTP ${res.status}`;
+    throw new Error(detail);
+  }
+
+  if (typeof data.reply !== "string" || !data.reply.trim()) {
+    throw new Error("The mixologist returned an empty reply.");
+  }
 
   return {
-    id:
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `assistant-${Date.now()}`,
+    id: newId("assistant"),
     role: "assistant",
-    content:
-      "Backend is not connected yet. Once it is, I will help curate your 30-drink menu from inventory.",
+    content: data.reply.trim(),
     createdAt: Date.now(),
   };
 }
