@@ -1,0 +1,12 @@
+# Production-style run. For local hot reload, use `npm run dev` on the host.
+# Optional: env_file: .env for future API keys (CocktailDB, LLM, etc.)
+
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    # env_file:
+    #   - .env
+    environment:
+      NODE_ENV: production
