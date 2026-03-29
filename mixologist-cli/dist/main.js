@@ -22,7 +22,11 @@ async function main() {
                     break;
                 history.push(new HumanMessage(line));
                 try {
-                    const result = await agent.invoke({ messages: history });
+                    const result = await agent.invoke({ messages: history }, {
+                        runName: "mixologist-cli-chat",
+                        tags: ["mixologist", "cli"],
+                        metadata: { source: "cli" },
+                    });
                     const msgs = result.messages;
                     history.length = 0;
                     history.push(...msgs);

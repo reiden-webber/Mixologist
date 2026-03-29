@@ -22,6 +22,13 @@ function toBaseMessages(rows) {
         ? new HumanMessage(m.content)
         : new AIMessage(m.content));
 }
+function requestCorrelationId(req) {
+    const h = req.headers;
+    const raw = h["x-request-id"] ?? h["x-trace-id"];
+    if (typeof raw !== "string" || !raw.trim())
+        return undefined;
+    return raw.trim();
+}
 async function readJsonBody(req) {
     const chunks = [];
     for await (const chunk of req) {
@@ -54,7 +61,15 @@ async function main() {
                     sendJson(res, 400, { error: "messages_required" });
                     return;
                 }
-                const result = await session.agent.invoke({ messages });
+                const requestId = requestCorrelationId(req);
+                const result = await session.agent.invoke({ messages }, {
+                    runName: "mixologist-http-chat",
+                    tags: ["mixologist", "http"],
+                    metadata: {
+                        source: "http",
+                        ...(requestId ? { requestId } : {}),
+                    },
+                });
                 const msgs = result.messages;
                 const last = msgs[msgs.length - 1];
                 const reply = last instanceof AIMessage
