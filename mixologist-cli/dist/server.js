@@ -35,7 +35,6 @@ async function readJsonBody(req) {
 async function main() {
     console.info("[mixologist] Starting agent session…");
     const session = await createMixologistSession();
-    console.info(`[mixologist] Listening on 0.0.0.0:${PORT}`);
     const server = createServer(async (req, res) => {
         const url = req.url?.split("?")[0] ?? "/";
         if (req.method === "GET" && (url === "/health" || url === "/health/")) {
@@ -74,7 +73,9 @@ async function main() {
         }
         sendJson(res, 404, { error: "not_found" });
     });
-    server.listen(PORT, "0.0.0.0");
+    server.listen(PORT, "0.0.0.0", () => {
+        console.info(`[mixologist] Listening on 0.0.0.0:${PORT}`);
+    });
     const shutdown = async () => {
         server.close();
         await session.close();

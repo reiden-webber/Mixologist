@@ -16,6 +16,7 @@ services:
       MCP_SERVER_PATH: /app/MCP_Server/dist/index.js
       MIXOLOGIST_HTTP_PORT: "4100"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COCKTAIL_DB_API_KEY: ${COCKTAIL_DB_API_KEY:-1}
 
   backend:
     build:

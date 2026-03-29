@@ -1,4 +1,5 @@
-const COCKTAIL_DB_BASE = "https://www.thecocktaildb.com/api/json/v1/1/";
+const key = (process.env.COCKTAIL_DB_API_KEY ?? "1").trim() || "1";
+const COCKTAIL_DB_BASE = `https://www.thecocktaildb.com/api/json/v1/${encodeURIComponent(key)}/`;
 
 export async function fetchCocktailDbJson(pathAndQuery: string): Promise<unknown> {
   const url = new URL(pathAndQuery, COCKTAIL_DB_BASE).toString();

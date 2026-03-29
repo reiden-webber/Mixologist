@@ -14,7 +14,7 @@ export const INGREDIENTS_URI = "cocktaildb://list/ingredients";
 export const MCP_SERVER_NAME = "cocktaildb";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-config({ path: join(__dirname, "..", ".env") });
+config({ path: join(__dirname, "..", "..", ".env") });
 function packageRoot() {
     return join(__dirname, "..");
 }
@@ -61,7 +61,7 @@ Ask the user to share their bar inventory when you need it for makeability advic
 }
 export async function createMixologistSession() {
     if (!process.env.ANTHROPIC_API_KEY?.trim()) {
-        throw new Error("Missing ANTHROPIC_API_KEY. Set it in the environment or mixologist-cli/.env.");
+        throw new Error("Missing ANTHROPIC_API_KEY. Set it in the environment or in `.env` at the repository root (see `.env.example`).");
     }
     const mcpPath = resolveMcpServerEntry();
     if (!existsSync(mcpPath)) {

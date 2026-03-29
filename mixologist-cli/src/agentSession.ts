@@ -19,7 +19,7 @@ export const MCP_SERVER_NAME = "cocktaildb";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-config({ path: join(__dirname, "..", ".env") });
+config({ path: join(__dirname, "..", "..", ".env") });
 
 function packageRoot(): string {
   return join(__dirname, "..");
@@ -77,7 +77,7 @@ export type MixologistSession = {
 export async function createMixologistSession(): Promise<MixologistSession> {
   if (!process.env.ANTHROPIC_API_KEY?.trim()) {
     throw new Error(
-      "Missing ANTHROPIC_API_KEY. Set it in the environment or mixologist-cli/.env.",
+      "Missing ANTHROPIC_API_KEY. Set it in the environment or in `.env` at the repository root (see `.env.example`).",
     );
   }
 
