@@ -45,7 +45,7 @@ export function Composer({ disabled, onSend }: Props) {
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Message Bartender…"
+          placeholder="Message Mixologist…"
           rows={1}
           disabled={disabled}
           className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-zinc-400 disabled:opacity-50"

@@ -53,7 +53,7 @@ export function MessageList({ messages, pending }: Props) {
         </p>
         <p className="max-w-md">
           Ask about ingredients or classic drinks — for example: &ldquo;Tell me about
-          a cocktail that uses lime.&rdquo; Answers use your CocktailDB-backed mixologist.
+          a cocktail that uses lime.&rdquo;
         </p>
       </div>
     );

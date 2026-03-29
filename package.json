@@ -1,5 +1,5 @@
 {
-  "name": "bartender",
+  "name": "mixologist",
   "private": true,
   "workspaces": [
     "frontend",

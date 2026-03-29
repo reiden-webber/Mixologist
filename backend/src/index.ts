@@ -35,7 +35,7 @@ function main(): void {
     }
 
     if (req.method === "GET" && (url === "/health" || url === "/health/")) {
-      sendJson(res, 200, { status: "ok", service: "bartender-backend" });
+      sendJson(res, 200, { status: "ok", service: "mixologist-backend" });
       return;
     }
 
