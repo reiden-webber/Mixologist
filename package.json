@@ -1,0 +1,16 @@
+{
+  "name": "mixologist",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "MCP_Server",
+    "mixologist-cli"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w frontend",
+    "build": "npm run build -w frontend",
+    "build:all": "npm run build -w backend && npm run build -w mcp-server && npm run build -w mixologist-cli && npm run build -w frontend",
+    "lint": "npm run lint -w frontend"
+  }
+}
