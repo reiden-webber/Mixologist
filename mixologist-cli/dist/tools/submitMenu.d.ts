@@ -6,16 +6,19 @@ export declare const submitMenuTool: DynamicStructuredTool<import("zod").ZodObje
     concept: import("zod").ZodString;
     items: import("zod").ZodArray<import("zod").ZodObject<{
         name: import("zod").ZodString;
+        category: import("zod").ZodString;
         ingredients: import("zod").ZodArray<import("zod").ZodString, "many">;
         margin: import("zod").ZodNumber;
         description: import("zod").ZodString;
     }, "strip", import("zod").ZodTypeAny, {
         name: string;
+        category: string;
         ingredients: string[];
         margin: number;
         description: string;
     }, {
         name: string;
+        category: string;
         ingredients: string[];
         margin: number;
         description: string;
@@ -25,6 +28,7 @@ export declare const submitMenuTool: DynamicStructuredTool<import("zod").ZodObje
     concept: string;
     items: {
         name: string;
+        category: string;
         ingredients: string[];
         margin: number;
         description: string;
@@ -34,6 +38,7 @@ export declare const submitMenuTool: DynamicStructuredTool<import("zod").ZodObje
     concept: string;
     items: {
         name: string;
+        category: string;
         ingredients: string[];
         margin: number;
         description: string;
@@ -43,6 +48,7 @@ export declare const submitMenuTool: DynamicStructuredTool<import("zod").ZodObje
     concept: string;
     items: {
         name: string;
+        category: string;
         ingredients: string[];
         margin: number;
         description: string;
@@ -52,6 +58,7 @@ export declare const submitMenuTool: DynamicStructuredTool<import("zod").ZodObje
     concept: string;
     items: {
         name: string;
+        category: string;
         ingredients: string[];
         margin: number;
         description: string;

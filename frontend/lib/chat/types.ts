@@ -2,6 +2,7 @@ export type ChatRole = "user" | "assistant";
 
 export type MenuItem = {
   name: string;
+  category: string;
   ingredients: string[];
   margin: number;
   description: string;

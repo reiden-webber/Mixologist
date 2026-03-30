@@ -6,7 +6,8 @@ export const submitMenuTool = new DynamicStructuredTool({
     name: "submit_menu",
     description: "Present the finalized cocktail menu as structured data. " +
         "Call this once the menu is complete and all drinks have passed theme validation. " +
-        "Provide menuName, concept, and an items array with name, ingredients, margin (0-1 decimal), and description for each drink.",
+        "Provide menuName, concept, and an items array with name, category (guest-facing section label, e.g. Signature, Classics, Zero-proof), " +
+        "ingredients, margin (0-1 decimal), and description for each drink.",
     schema: MenuSchema,
     func: async (input) => {
         const menu = MenuSchema.parse(input);

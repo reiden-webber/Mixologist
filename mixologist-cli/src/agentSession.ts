@@ -81,6 +81,7 @@ Once discovery is complete:
 - Use CocktailDB tools to research drinks that match the owner's concept.
 - Call **validate_theme** for every candidate drink to ensure it fits the declared bar theme.
 - Drop or replace drinks that fail validation.
+- Assign each drink a **category** string for menu sections (use a small, consistent set of labels matching how guests would see the menu, e.g. Signature, Classics, Seasonal).
 - When the menu is finalized, call **submit_menu** with the complete structured menu object. This is required — always present the final menu through the submit_menu tool.
 
 ## Canonical Ingredients (from resource ${INGREDIENTS_URI})
