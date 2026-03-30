@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 type Props = {
   disabled?: boolean;
@@ -9,6 +16,15 @@ type Props = {
 
 export function Composer({ disabled, onSend }: Props) {
   const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const capPx = Math.round(window.innerHeight * 0.65);
+    el.style.height = "0px";
+    el.style.height = `${Math.min(el.scrollHeight, capPx)}px`;
+  }, [value]);
 
   const submit = useCallback(async () => {
     const trimmed = value.trim();
@@ -40,15 +56,16 @@ export function Composer({ disabled, onSend }: Props) {
       onSubmit={onSubmit}
       className="shrink-0 border-t border-zinc-200 bg-[var(--background)] px-3 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.04)] dark:border-zinc-800 dark:shadow-[0_-4px_12px_rgba(0,0,0,0.25)] md:px-6"
     >
-      <div className="mx-auto flex max-w-3xl gap-2 rounded-2xl border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-950">
+      <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-zinc-200 bg-white p-2 dark:border-zinc-700 dark:bg-zinc-950">
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Message Mixologist…"
           rows={1}
           disabled={disabled}
-          className="max-h-40 min-h-[44px] flex-1 resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-zinc-400 disabled:opacity-50"
+          className="min-h-[44px] max-h-[65dvh] flex-1 resize-none overflow-y-auto bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-zinc-400 disabled:opacity-50"
           aria-label="Message input"
         />
         <button
