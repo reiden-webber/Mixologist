@@ -6,8 +6,8 @@
 
 - **Discovery, then design**: Mandatory discovery (theme, demographics, price targets, inventory) before drink recommendations.
 - **TheCocktailDB-backed research**: Filter by ingredient, fetch full recipes by `idDrink`, and search by name via an MCP server.
-- `**validate_theme`**: Local tool to gate candidate drinks against the declared bar concept.
-- `**submit_menu**`: Final menu as structured JSON (Zod-validated); the HTTP API can return it for the **menu canvas** in the frontend.
+- **`validate_theme`**: Local tool to gate candidate drinks against the declared bar concept.
+- **`submit_menu`**: Final menu as structured JSON (Zod-validated); the HTTP API can return it for the **menu canvas** in the frontend.
 - **Streaming progress**: Mixologist serves `application/x-ndjson` status lines while the agent runs; the Next.js client parses the stream (`frontend/lib/chat/sendMessage.ts`).
 - **CLI or full stack**: Interactive REPL in `mixologist-cli`, or **Docker Compose** for web + backend + mixologist.
 
@@ -33,10 +33,50 @@ Workspaces (root `package.json`): `frontend`, `backend`, `MCP_Server` (package n
 - Node.js and npm
 - An [Anthropic](https://www.anthropic.com/) API key
 
-### Environment
+### Environment file
 
-1. Copy `.env.example` to `.env` at the **repository root**.
-2. Set `ANTHROPIC_API_KEY`. Optionally set `COCKTAIL_DB_API_KEY` (default `1` is the free public CocktailDB tier).
+1. Copy `.env.example` to `.env` at the **repository root** (same folder as `package.json` and `docker-compose.yml`).
+2. Fill in the keys below. Mixologist loads this `.env` when you run `mixologist-cli` locally; Docker Compose also reads it for variable substitution.
+
+### API keys (how to get them and where they go)
+
+| Variable | Required? | Used by |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | **Yes** (for the agent) | `mixologist-cli` → Anthropic Claude API |
+| `COCKTAIL_DB_API_KEY` | No | `MCP_Server` → TheCocktailDB URL path segment |
+| `LANGSMITH_API_KEY` | No | Optional tracing in LangSmith (see `.env.example`) |
+
+#### Anthropic (`ANTHROPIC_API_KEY`)
+
+The agent calls Anthropic’s API; without this key, `createMixologistSession()` fails at startup.
+
+1. Sign in at the [Anthropic Console](https://console.anthropic.com/) (create an account if needed).
+2. Open **API keys** (or **Settings → API keys**, depending on the console layout).
+3. **Create key**, give it a label, and copy the secret **once** when shown — you cannot view it again later (only rotate or create a new key).
+4. In your repo-root `.env`, set:
+
+   ```bash
+   ANTHROPIC_API_KEY=paste_the_full_secret_here
+   ```
+
+   Use a single line, no spaces around `=`, and no quotes unless your shell requires them. Do not commit `.env` (it should stay gitignored).
+
+#### TheCocktailDB (`COCKTAIL_DB_API_KEY`)
+
+Requests are built as `https://www.thecocktaildb.com/api/json/v1/{key}/...` — the value is the **path segment** after `/v1/`, not a Bearer header.
+
+- **Default / free tier**: use `1`, as in `.env.example`. That is the public demo key TheCocktailDB documents for JSON endpoints.
+- **Paid / supporter tier**: If you subscribe and receive a different key from [TheCocktailDB](https://www.thecocktaildb.com/), replace the value in `.env`:
+
+  ```bash
+  COCKTAIL_DB_API_KEY=your_key_here
+  ```
+
+Docker Compose passes this into the mixologist service so the bundled MCP server can reach the API (see `docker-compose.yml`). For local runs, ensure `.env` is at the repo root so processes that load it see the same value.
+
+#### LangSmith (optional)
+
+For LangChain/LangSmith traces (`LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, etc.), create a project and API key in [LangSmith](https://smith.langchain.com/) and uncomment or add the variables from `.env.example`. This is optional and unrelated to running the chat UI.
 
 ### Docker (full stack)
 
