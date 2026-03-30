@@ -55,12 +55,29 @@ function main(): void {
           headers: { "Content-Type": "application/json" },
           body: body.length ? new Uint8Array(body) : "{}",
         });
-        const text = await upstream.text();
-        res.writeHead(upstream.status, {
-          "Content-Type": upstream.headers.get("content-type") ?? "application/json; charset=utf-8",
+        const ct =
+          upstream.headers.get("content-type") ??
+          "application/json; charset=utf-8";
+        const outHeaders: Record<string, string> = {
+          "Content-Type": ct,
           "Access-Control-Allow-Origin": "*",
-        });
-        res.end(text);
+        };
+        const cacheCtl = upstream.headers.get("cache-control");
+        if (cacheCtl) outHeaders["Cache-Control"] = cacheCtl;
+        res.writeHead(upstream.status, outHeaders);
+        if (upstream.body) {
+          const reader = upstream.body.getReader();
+          try {
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (value?.length) res.write(Buffer.from(value));
+            }
+          } finally {
+            reader.releaseLock();
+          }
+        }
+        res.end();
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         sendJson(res, 502, { error: "mixologist_unreachable", message: msg });

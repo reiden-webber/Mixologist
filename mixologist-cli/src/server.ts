@@ -1,5 +1,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import {
+  isBaseMessage,
+  coerceMessageLikeToMessage,
+  type BaseMessageLike,
+} from "@langchain/core/messages";
+import {
   AIMessage,
   HumanMessage,
   ToolMessage,
@@ -10,6 +15,7 @@ import {
   createMixologistSession,
   extractAssistantText,
 } from "./agentSession.js";
+import { statusMessagesFromUpdatesChunk } from "./progressLabels.js";
 import { MenuSchema } from "./tools/menuSchema.js";
 import {
   MENU_SENTINEL_OPEN,
@@ -34,6 +40,28 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
     "Content-Length": Buffer.byteLength(payload),
   });
   res.end(payload);
+}
+
+function writeNdjsonLine(res: ServerResponse, obj: unknown): void {
+  if (res.writableEnded) return;
+  res.write(`${JSON.stringify(obj)}\n`);
+}
+
+function normalizeTranscriptMessages(raw: unknown): BaseMessage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: BaseMessage[] = [];
+  for (const m of raw) {
+    if (isBaseMessage(m)) {
+      out.push(m);
+      continue;
+    }
+    try {
+      out.push(coerceMessageLikeToMessage(m as BaseMessageLike));
+    } catch {
+      /* skip non-coercible entries */
+    }
+  }
+  return out;
 }
 
 function toBaseMessages(
@@ -154,32 +182,85 @@ async function main(): Promise<void> {
           return;
         }
         const requestId = requestCorrelationId(req);
-        const result = await session.agent.invoke(
+        const runConfig = {
+          runName: "mixologist-http-chat",
+          tags: ["mixologist", "http"],
+          metadata: {
+            source: "http",
+            ...(requestId ? { requestId } : {}),
+          },
+        };
+
+        res.writeHead(200, {
+          "Content-Type": "application/x-ndjson; charset=utf-8",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        });
+
+        const emitStatus = (text: string): void => {
+          writeNdjsonLine(res, { type: "status", message: text });
+        };
+
+        emitStatus("Working…");
+
+        const stream = await session.agent.stream(
           { messages },
           {
-            runName: "mixologist-http-chat",
-            tags: ["mixologist", "http"],
-            metadata: {
-              source: "http",
-              ...(requestId ? { requestId } : {}),
-            },
+            ...runConfig,
+            streamMode: ["updates", "values"],
           },
         );
-        const msgs = result.messages as BaseMessage[];
-        const menuRaw = extractLatestMenuFromTranscript(msgs);
+
+        let transcript: BaseMessage[] = [];
+
+        for await (const item of stream) {
+          if (Array.isArray(item) && item.length === 2) {
+            const [mode, data] = item as [string, unknown];
+            if (mode === "values" && data && typeof data === "object") {
+              const msgs = (data as { messages?: unknown }).messages;
+              if (msgs !== undefined) {
+                transcript = normalizeTranscriptMessages(msgs);
+              }
+            }
+            if (mode === "updates") {
+              for (const line of statusMessagesFromUpdatesChunk(data)) {
+                emitStatus(line);
+              }
+            }
+          } else if (item && typeof item === "object" && "messages" in item) {
+            const msgs = (item as { messages?: unknown }).messages;
+            if (msgs !== undefined) {
+              transcript = normalizeTranscriptMessages(msgs);
+            }
+          }
+        }
+
+        if (transcript.length === 0) {
+          throw new Error("Agent stream produced no transcript.");
+        }
+
+        const menuRaw = extractLatestMenuFromTranscript(transcript);
         const menuParsed =
           menuRaw !== null ? MenuSchema.safeParse(menuRaw) : null;
         const menu =
           menuParsed && menuParsed.success ? menuParsed.data : undefined;
 
-        const rawReply = lastAIMessageReplyText(msgs);
+        const rawReply = lastAIMessageReplyText(transcript);
         const { reply } = extractMenuFromReply(rawReply);
 
-        sendJson(res, 200, menu ? { reply, menu } : { reply });
+        const resultBody =
+          menu !== undefined ? { type: "result" as const, reply, menu } : { type: "result" as const, reply };
+        writeNdjsonLine(res, resultBody);
+        res.end();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[mixologist] /v1/chat error:", msg);
-        sendJson(res, 500, { error: "chat_failed", message: msg });
+        if (!res.headersSent) {
+          sendJson(res, 500, { error: "chat_failed", message: msg });
+        } else {
+          writeNdjsonLine(res, { type: "error", message: msg });
+          res.end();
+        }
       }
       return;
     }

@@ -24,12 +24,15 @@ export async function POST(req: Request): Promise<NextResponse> {
       },
       body: body.length ? body : "{}",
     });
-    const text = await upstream.text();
-    return new NextResponse(text, {
+    const ct =
+      upstream.headers.get("content-type") ??
+      "application/json; charset=utf-8";
+    const cacheControl = upstream.headers.get("cache-control");
+    return new NextResponse(upstream.body, {
       status: upstream.status,
       headers: {
-        "Content-Type":
-          upstream.headers.get("content-type") ?? "application/json; charset=utf-8",
+        "Content-Type": ct,
+        ...(cacheControl ? { "Cache-Control": cacheControl } : {}),
       },
     });
   } catch (e) {

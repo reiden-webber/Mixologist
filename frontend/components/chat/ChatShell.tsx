@@ -22,6 +22,7 @@ function newUserMessage(content: string): Message {
 export function ChatShell() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [pending, setPending] = useState(false);
+  const [progressSteps, setProgressSteps] = useState<string[]>([]);
   const [canvasOpen, setCanvasOpen] = useState(false);
 
   const latestMenu: Menu | null = useMemo(() => {
@@ -38,9 +39,12 @@ export function ChatShell() {
       threadForRequest = [...prev, userMsg];
       return threadForRequest;
     });
+    setProgressSteps([]);
     setPending(true);
     try {
-      const reply = await submitUserMessage(threadForRequest);
+      const reply = await submitUserMessage(threadForRequest, (steps) => {
+        setProgressSteps(steps);
+      });
       setMessages((prev) => [...prev, reply]);
       if (reply.menu) setCanvasOpen(true);
     } catch (e) {
@@ -59,6 +63,7 @@ export function ChatShell() {
       ]);
     } finally {
       setPending(false);
+      setProgressSteps([]);
     }
   }, []);
 
@@ -116,7 +121,11 @@ export function ChatShell() {
           </header>
 
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <MessageList messages={messages} pending={pending} />
+            <MessageList
+              messages={messages}
+              pending={pending}
+              progressSteps={progressSteps}
+            />
             <Composer disabled={pending} onSend={handleSend} />
           </main>
         </div>

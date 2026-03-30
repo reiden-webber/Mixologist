@@ -1,7 +1,11 @@
 import { createServer } from "node:http";
-import { AIMessage, HumanMessage } from "langchain";
+import { isBaseMessage, coerceMessageLikeToMessage, } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, ToolMessage, } from "langchain";
 import { z } from "zod";
 import { createMixologistSession, extractAssistantText, } from "./agentSession.js";
+import { statusMessagesFromUpdatesChunk } from "./progressLabels.js";
+import { MenuSchema } from "./tools/menuSchema.js";
+import { MENU_SENTINEL_OPEN, MENU_SENTINEL_CLOSE, } from "./tools/submitMenu.js";
 const chatBodySchema = z.object({
     messages: z.array(z.object({
         role: z.enum(["user", "assistant"]),
@@ -17,6 +21,29 @@ function sendJson(res, status, body) {
     });
     res.end(payload);
 }
+function writeNdjsonLine(res, obj) {
+    if (res.writableEnded)
+        return;
+    res.write(`${JSON.stringify(obj)}\n`);
+}
+function normalizeTranscriptMessages(raw) {
+    if (!Array.isArray(raw))
+        return [];
+    const out = [];
+    for (const m of raw) {
+        if (isBaseMessage(m)) {
+            out.push(m);
+            continue;
+        }
+        try {
+            out.push(coerceMessageLikeToMessage(m));
+        }
+        catch {
+            /* skip non-coercible entries */
+        }
+    }
+    return out;
+}
 function toBaseMessages(rows) {
     return rows.map((m) => m.role === "user"
         ? new HumanMessage(m.content)
@@ -28,6 +55,73 @@ function requestCorrelationId(req) {
     if (typeof raw !== "string" || !raw.trim())
         return undefined;
     return raw.trim();
+}
+function messageContentToString(content) {
+    if (typeof content === "string")
+        return content;
+    if (!Array.isArray(content))
+        return String(content ?? "");
+    const parts = [];
+    for (const block of content) {
+        if (typeof block === "string") {
+            parts.push(block);
+            continue;
+        }
+        if (block && typeof block === "object" && "type" in block) {
+            const t = block.type;
+            if (t === "text" && "text" in block) {
+                parts.push(String(block.text));
+            }
+        }
+    }
+    return parts.join("\n");
+}
+function extractMenuFromReply(text) {
+    const openIdx = text.indexOf(MENU_SENTINEL_OPEN);
+    const closeIdx = text.indexOf(MENU_SENTINEL_CLOSE);
+    if (openIdx === -1 || closeIdx === -1 || closeIdx <= openIdx) {
+        return { reply: text, menu: null };
+    }
+    const jsonStr = text.slice(openIdx + MENU_SENTINEL_OPEN.length, closeIdx);
+    const before = text.slice(0, openIdx);
+    const after = text.slice(closeIdx + MENU_SENTINEL_CLOSE.length);
+    const cleanReply = (before + after).trim();
+    try {
+        const menu = JSON.parse(jsonStr);
+        return { reply: cleanReply, menu };
+    }
+    catch {
+        return { reply: text, menu: null };
+    }
+}
+/** Text from a message that might contain MENU_JSON sentinels (tool output or assistant). */
+function searchableTextForMenuScan(msg) {
+    if (msg instanceof AIMessage)
+        return extractAssistantText(msg);
+    if (msg instanceof ToolMessage) {
+        return messageContentToString(msg.content).trim();
+    }
+    return null;
+}
+/** Latest menu in this turn: scan newest messages first (submit_menu output is usually a ToolMessage). */
+function extractLatestMenuFromTranscript(msgs) {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+        const text = searchableTextForMenuScan(msgs[i]);
+        if (!text)
+            continue;
+        const { menu } = extractMenuFromReply(text);
+        if (menu !== null)
+            return menu;
+    }
+    return null;
+}
+function lastAIMessageReplyText(msgs) {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (m instanceof AIMessage)
+            return extractAssistantText(m);
+    }
+    return "";
 }
 async function readJsonBody(req) {
     const chunks = [];
@@ -62,27 +156,72 @@ async function main() {
                     return;
                 }
                 const requestId = requestCorrelationId(req);
-                const result = await session.agent.invoke({ messages }, {
+                const runConfig = {
                     runName: "mixologist-http-chat",
                     tags: ["mixologist", "http"],
                     metadata: {
                         source: "http",
                         ...(requestId ? { requestId } : {}),
                     },
+                };
+                res.writeHead(200, {
+                    "Content-Type": "application/x-ndjson; charset=utf-8",
+                    "Cache-Control": "no-cache",
+                    Connection: "keep-alive",
                 });
-                const msgs = result.messages;
-                const last = msgs[msgs.length - 1];
-                const reply = last instanceof AIMessage
-                    ? extractAssistantText(last)
-                    : last
-                        ? JSON.stringify(last.content)
-                        : "";
-                sendJson(res, 200, { reply });
+                const emitStatus = (text) => {
+                    writeNdjsonLine(res, { type: "status", message: text });
+                };
+                emitStatus("Working…");
+                const stream = await session.agent.stream({ messages }, {
+                    ...runConfig,
+                    streamMode: ["updates", "values"],
+                });
+                let transcript = [];
+                for await (const item of stream) {
+                    if (Array.isArray(item) && item.length === 2) {
+                        const [mode, data] = item;
+                        if (mode === "values" && data && typeof data === "object") {
+                            const msgs = data.messages;
+                            if (msgs !== undefined) {
+                                transcript = normalizeTranscriptMessages(msgs);
+                            }
+                        }
+                        if (mode === "updates") {
+                            for (const line of statusMessagesFromUpdatesChunk(data)) {
+                                emitStatus(line);
+                            }
+                        }
+                    }
+                    else if (item && typeof item === "object" && "messages" in item) {
+                        const msgs = item.messages;
+                        if (msgs !== undefined) {
+                            transcript = normalizeTranscriptMessages(msgs);
+                        }
+                    }
+                }
+                if (transcript.length === 0) {
+                    throw new Error("Agent stream produced no transcript.");
+                }
+                const menuRaw = extractLatestMenuFromTranscript(transcript);
+                const menuParsed = menuRaw !== null ? MenuSchema.safeParse(menuRaw) : null;
+                const menu = menuParsed && menuParsed.success ? menuParsed.data : undefined;
+                const rawReply = lastAIMessageReplyText(transcript);
+                const { reply } = extractMenuFromReply(rawReply);
+                const resultBody = menu !== undefined ? { type: "result", reply, menu } : { type: "result", reply };
+                writeNdjsonLine(res, resultBody);
+                res.end();
             }
             catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 console.error("[mixologist] /v1/chat error:", msg);
-                sendJson(res, 500, { error: "chat_failed", message: msg });
+                if (!res.headersSent) {
+                    sendJson(res, 500, { error: "chat_failed", message: msg });
+                }
+                else {
+                    writeNdjsonLine(res, { type: "error", message: msg });
+                    res.end();
+                }
             }
             return;
         }

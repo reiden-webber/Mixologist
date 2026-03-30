@@ -1,5 +1,6 @@
 import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 import type { ReactAgent } from "langchain";
+export declare const MCP_TOOL_NAMES: Set<string>;
 export declare const TOOL_NAMES: Set<string>;
 export declare const INGREDIENTS_URI = "cocktaildb://list/ingredients";
 export declare const MCP_SERVER_NAME = "cocktaildb";
