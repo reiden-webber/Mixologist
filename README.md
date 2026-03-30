@@ -35,8 +35,20 @@ Workspaces (root `package.json`): `frontend`, `backend`, `MCP_Server` (package n
 
 ### Environment file
 
-1. Copy `.env.example` to `.env` at the **repository root** (same folder as `package.json` and `docker-compose.yml`).
-2. Fill in the keys below. Mixologist loads this `.env` when you run `mixologist-cli` locally; Docker Compose also reads it for variable substitution.
+On **Linux** (including **WSL**), open a terminal and `cd` to the **repository root** (the folder that contains `package.json` and `docker-compose.yml`). Then paste and run:
+
+```bash
+cd /path/to/bartender
+cp .env.example .env
+```
+
+If your shell is **already** in that directory, you only need:
+
+```bash
+cp .env.example .env
+```
+
+`cp` creates `.env` as a copy of `.env.example`. Edit `.env` next (see below). Mixologist loads this file when you run `mixologist-cli` locally; Docker Compose reads the same repo-root `.env` for variable substitution when you run `docker compose`.
 
 ### API keys (how to get them and where they go)
 
