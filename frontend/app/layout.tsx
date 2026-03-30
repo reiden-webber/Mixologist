@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Mixologist",
-  description: "AI-assisted cocktail menu from live inventory",
+  description: "AI-powered hospitality consultant for designing and costing cocktail menus",
 };
 
 export default function RootLayout({

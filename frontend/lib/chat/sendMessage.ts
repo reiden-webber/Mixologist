@@ -1,8 +1,8 @@
-import type { Message } from "./types";
+import type { Menu, Message } from "./types";
 
 type ChatApiMessage = { role: "user" | "assistant"; content: string };
 
-type ChatApiOk = { reply: string };
+type ChatApiOk = { reply: string; menu?: Menu };
 type ChatApiErr = { error?: string; message?: string };
 
 function newId(prefix: string): string {
@@ -46,10 +46,16 @@ export async function submitUserMessage(messages: Message[]): Promise<Message> {
     throw new Error("The mixologist returned an empty reply.");
   }
 
-  return {
+  const msg: Message = {
     id: newId("assistant"),
     role: "assistant",
     content: data.reply.trim(),
     createdAt: Date.now(),
   };
+
+  if (data.menu && typeof data.menu === "object" && Array.isArray(data.menu.items)) {
+    msg.menu = data.menu;
+  }
+
+  return msg;
 }

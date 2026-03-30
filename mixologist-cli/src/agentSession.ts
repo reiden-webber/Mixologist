@@ -6,11 +6,19 @@ import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { createAgent } from "langchain";
 import type { ReactAgent } from "langchain";
+import { validateThemeTool } from "./tools/validateTheme.js";
+import { submitMenuTool } from "./tools/submitMenu.js";
 
-export const TOOL_NAMES = new Set([
+export const MCP_TOOL_NAMES = new Set([
   "get_cocktails_by_ingredient",
   "get_cocktail_details",
   "search_cocktail_by_name",
+]);
+
+export const TOOL_NAMES = new Set([
+  ...MCP_TOOL_NAMES,
+  "validate_theme",
+  "submit_menu",
 ]);
 
 export const INGREDIENTS_URI = "cocktaildb://list/ingredients";
@@ -55,17 +63,40 @@ export function extractAssistantText(message: {
 }
 
 function buildSystemPrompt(ingredientsJson: string): string {
-  return `You are the Master Mixologist — a warm, knowledgeable bar expert. You help with cocktail recommendations and ingredient questions using only data from the CocktailDB MCP tools.
+  return `You are the Mixologist — an expert Hospitality Consultant who helps bar owners design, cost, and curate seasonal cocktail menus. Your approach is professional, analytical, and efficiency-oriented.
 
-**Canonical ingredients (from resource ${INGREDIENTS_URI}):**
-Before calling get_cocktails_by_ingredient, map the user's ingredient to the exact string from this list when possible (spelling and casing matter for the API).
+## Workflow
+
+### Discovery Phase (MANDATORY first step)
+Before suggesting any drinks you MUST complete a discovery conversation. Ask about:
+1. **Bar theme / concept** (e.g., 1920s Speakeasy, Tiki Lounge, Modern Craft)
+2. **Target demographics** (age range, preferences, spending habits)
+3. **Price-point targets** (average drink price, food-cost percentage goals)
+4. **Inventory constraints** (spirits on hand, seasonal availability)
+
+Do not skip this phase. Gather at least theme and price context before proceeding.
+
+### Menu Design Phase
+Once discovery is complete:
+- Use CocktailDB tools to research drinks that match the owner's concept.
+- Call **validate_theme** for every candidate drink to ensure it fits the declared bar theme.
+- Drop or replace drinks that fail validation.
+- When the menu is finalized, call **submit_menu** with the complete structured menu object. This is required — always present the final menu through the submit_menu tool.
+
+## Canonical Ingredients (from resource ${INGREDIENTS_URI})
+Map ingredient names to these exact strings before calling get_cocktails_by_ingredient:
 ${ingredientsJson}
 
-**Tools:**
-- Recommendations / "what can I make with X?": use get_cocktails_by_ingredient with the canonical name, then get_cocktail_details for recipes or subset checks against the user's bar inventory.
-- Named drinks / "what's in a Paloma?": use search_cocktail_by_name, then get_cocktail_details with the idDrink from results.
+## CocktailDB Tools
+- **get_cocktails_by_ingredient**: list drinks containing an ingredient (use canonical name).
+- **get_cocktail_details**: full recipe by idDrink — use for costing and ingredient analysis.
+- **search_cocktail_by_name**: resolve a cocktail name to its idDrink.
 
-Ask the user to share their bar inventory when you need it for makeability advice. Stay conversational and ground every factual claim in tool results.`;
+## Validation & Output Tools
+- **validate_theme**: check whether a drink fits the bar's declared theme before including it.
+- **submit_menu**: present the finalized menu as structured data. Call this once the menu is ready.
+
+Ground every recommendation in tool results. Be concise and action-oriented.`;
 }
 
 export type MixologistSession = {
@@ -112,16 +143,18 @@ export async function createMixologistSession(): Promise<MixologistSession> {
     );
   }
 
-  const allTools = await mcpClient.getTools(MCP_SERVER_NAME);
-  const tools = allTools.filter((t) => TOOL_NAMES.has(t.name));
-  if (tools.length !== TOOL_NAMES.size) {
-    const got = new Set(tools.map((t) => t.name));
-    const missing = [...TOOL_NAMES].filter((n) => !got.has(n));
+  const allMcpTools = await mcpClient.getTools(MCP_SERVER_NAME);
+  const mcpTools = allMcpTools.filter((t) => MCP_TOOL_NAMES.has(t.name));
+  if (mcpTools.length !== MCP_TOOL_NAMES.size) {
+    const got = new Set(mcpTools.map((t) => t.name));
+    const missing = [...MCP_TOOL_NAMES].filter((n) => !got.has(n));
     await mcpClient.close().catch(() => {});
     throw new Error(
-      `Expected MCP tools ${[...TOOL_NAMES].join(", ")}; missing: ${missing.join(", ") || "unknown"}`,
+      `Expected MCP tools ${[...MCP_TOOL_NAMES].join(", ")}; missing: ${missing.join(", ") || "unknown"}`,
     );
   }
+
+  const tools = [...mcpTools, validateThemeTool, submitMenuTool];
 
   const model = new ChatAnthropic({
     model: "claude-sonnet-4-6",

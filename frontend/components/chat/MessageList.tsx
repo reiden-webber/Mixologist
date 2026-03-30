@@ -49,11 +49,11 @@ export function MessageList({ messages, pending }: Props) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 overflow-y-auto scroll-smooth px-4 py-12 text-center text-sm text-zinc-500 dark:text-zinc-400">
         <p className="text-base font-medium text-zinc-700 dark:text-zinc-300">
-          What can we pour tonight?
+          Ready to craft your menu
         </p>
         <p className="max-w-md">
-          Ask about ingredients or classic drinks — for example: &ldquo;Tell me about
-          a cocktail that uses lime.&rdquo;
+          Describe your bar concept, target audience, and price range — the
+          Mixologist will design a curated cocktail menu for you.
         </p>
       </div>
     );

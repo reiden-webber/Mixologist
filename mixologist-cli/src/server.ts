@@ -1,10 +1,20 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { AIMessage, HumanMessage, type BaseMessage } from "langchain";
+import {
+  AIMessage,
+  HumanMessage,
+  ToolMessage,
+  type BaseMessage,
+} from "langchain";
 import { z } from "zod";
 import {
   createMixologistSession,
   extractAssistantText,
 } from "./agentSession.js";
+import { MenuSchema } from "./tools/menuSchema.js";
+import {
+  MENU_SENTINEL_OPEN,
+  MENU_SENTINEL_CLOSE,
+} from "./tools/submitMenu.js";
 
 const chatBodySchema = z.object({
   messages: z.array(
@@ -41,6 +51,71 @@ function requestCorrelationId(req: IncomingMessage): string | undefined {
   const raw = h["x-request-id"] ?? h["x-trace-id"];
   if (typeof raw !== "string" || !raw.trim()) return undefined;
   return raw.trim();
+}
+
+function messageContentToString(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return String(content ?? "");
+  const parts: string[] = [];
+  for (const block of content) {
+    if (typeof block === "string") {
+      parts.push(block);
+      continue;
+    }
+    if (block && typeof block === "object" && "type" in block) {
+      const t = (block as { type: string }).type;
+      if (t === "text" && "text" in block) {
+        parts.push(String((block as { text: string }).text));
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+function extractMenuFromReply(text: string): { reply: string; menu: unknown | null } {
+  const openIdx = text.indexOf(MENU_SENTINEL_OPEN);
+  const closeIdx = text.indexOf(MENU_SENTINEL_CLOSE);
+  if (openIdx === -1 || closeIdx === -1 || closeIdx <= openIdx) {
+    return { reply: text, menu: null };
+  }
+  const jsonStr = text.slice(openIdx + MENU_SENTINEL_OPEN.length, closeIdx);
+  const before = text.slice(0, openIdx);
+  const after = text.slice(closeIdx + MENU_SENTINEL_CLOSE.length);
+  const cleanReply = (before + after).trim();
+  try {
+    const menu = JSON.parse(jsonStr) as unknown;
+    return { reply: cleanReply, menu };
+  } catch {
+    return { reply: text, menu: null };
+  }
+}
+
+/** Text from a message that might contain MENU_JSON sentinels (tool output or assistant). */
+function searchableTextForMenuScan(msg: BaseMessage): string | null {
+  if (msg instanceof AIMessage) return extractAssistantText(msg);
+  if (msg instanceof ToolMessage) {
+    return messageContentToString(msg.content).trim();
+  }
+  return null;
+}
+
+/** Latest menu in this turn: scan newest messages first (submit_menu output is usually a ToolMessage). */
+function extractLatestMenuFromTranscript(msgs: BaseMessage[]): unknown | null {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const text = searchableTextForMenuScan(msgs[i]!);
+    if (!text) continue;
+    const { menu } = extractMenuFromReply(text);
+    if (menu !== null) return menu;
+  }
+  return null;
+}
+
+function lastAIMessageReplyText(msgs: BaseMessage[]): string {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m instanceof AIMessage) return extractAssistantText(m);
+  }
+  return "";
 }
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -91,14 +166,16 @@ async function main(): Promise<void> {
           },
         );
         const msgs = result.messages as BaseMessage[];
-        const last = msgs[msgs.length - 1];
-        const reply =
-          last instanceof AIMessage
-            ? extractAssistantText(last)
-            : last
-              ? JSON.stringify(last.content)
-              : "";
-        sendJson(res, 200, { reply });
+        const menuRaw = extractLatestMenuFromTranscript(msgs);
+        const menuParsed =
+          menuRaw !== null ? MenuSchema.safeParse(menuRaw) : null;
+        const menu =
+          menuParsed && menuParsed.success ? menuParsed.data : undefined;
+
+        const rawReply = lastAIMessageReplyText(msgs);
+        const { reply } = extractMenuFromReply(rawReply);
+
+        sendJson(res, 200, menu ? { reply, menu } : { reply });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error("[mixologist] /v1/chat error:", msg);
